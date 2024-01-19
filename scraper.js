@@ -13,7 +13,8 @@ const {
 const {petAllowedMapper, listingOwnerMapper, propertyTypeMapper, listingTypeMapper} = require("./constants/mapper");
 const {choices} = require("./constants/choices");
 const {cleanUp, scrapeImages, signIn, getPageData} = require("./utils/scaperUtils");
-const {generateExcel} = require("./utils/excelUtils");
+const {generateExcel, getDataFromExcel} = require("./utils/excelUtils");
+const {defaultListing} = require("./constants/listing");
 
 function propertyMapper($, property) {
     const listingType = getTextFromChoicesMapperObject($, choices.listingType, listingTypeMapper);
@@ -77,45 +78,21 @@ function propertyMapper($, property) {
     console.log('wechat:', wechat)
 
     const result = {
+        ...defaultListing,
         action: 'New',
         sku: property.lpCode,
         building_type: propertyType,
         postType: listingType,
         postFrom: listingOwner,
-        ostAcceptAgent: '',
         zoneId: property.area,
-        projectId: '',
         titleTH: projectName,
-        contentTH: '',
         titleEN: projectName,
-        contentEN: '',
-        price: '',
         areaSize: floorSize,
-        area_rai: '',
-        area_ngan: '',
-        area_wa: '',
         floor: floorLevel,
         room: numberBedrooms,
         bathroom: numberBedrooms,
         pet_allowed: petAllow,
-        fq: '',
-        youtube: '',
-        latitude: '',
-        longitude: '',
-        picture1: '',
-        picture2: '',
-        picture3: '',
-        picture4: '',
-        picture5: '',
-        picture6: '',
-        picture7: '',
-        picture8: '',
-        picture9: '',
-        picture10: '',
-        picture11: '',
-        picture12: '',
         usefulSpace: floorSize,
-        incomeAvgPerYear: '',
         email: email,
         lineId: line,
         tel: phone,
@@ -127,16 +104,18 @@ function propertyMapper($, property) {
         facingDirection: direction,
         unitNumber: unitNumber,
     };
-    if (listingType === 'Rent') {
+    if (listingType === 'buy/sell') {
+        const resultRent = {...result, postType: 'Rent', price: monthlyPriceMin12Months}
+        const resultSell = {...result, postType: 'Sell', price: salePrice}
+        return [resultRent, resultSell]
+    } else if (listingType === 'Rent') {
         result.price = monthlyPriceMin12Months;
         return [result]
     } else if (listingType === 'Sell') {
         result.price = salePrice;
         return [result]
     } else {
-        const resultRent = {...result, postType: 'Rent', price: monthlyPriceMin12Months}
-        const resultSell = {...result, postType: 'Sell', price: salePrice}
-        return [resultRent, resultSell]
+        return [defaultListing]
     }
 }
 
@@ -153,18 +132,18 @@ const scrapeWebPage = async ({isMock = false}) => {
     await cleanUp();
     const data = []
     const {page, browser} = isMock ? {} : await signIn();
-    const properties = [
-        {psCode: '1433805', lpCode: 'SUA-1', name: 'Saturdays', area: 'Asoke'},
-        {psCode: '1433817', lpCode: 'SUA-2', name: 'The Reserve', area: 'Asoke'},
-    ]
-
+    const properties = await getDataFromExcel()
     for (const property of properties) {
-        let $;
-        $ = await loadPage(isMock, page, property);
-        const properties = propertyMapper($, property);
-        data.push(...properties)
-        await scrapeImages($, property);
-        console.log('===================================================')
+        if (property.psCode) {
+            let $;
+            $ = await loadPage(isMock, page, property);
+            const properties = propertyMapper($, property);
+            data.push(...properties)
+            if (!!properties[0].postType) await scrapeImages($, property);
+            console.log('===================================================')
+        } else {
+            data.push(defaultListing)
+        }
     }
 
     await generateExcel(data)
@@ -175,4 +154,3 @@ const scrapeWebPage = async ({isMock = false}) => {
 };
 
 scrapeWebPage({isMock: true});
-

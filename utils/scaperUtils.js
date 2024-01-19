@@ -11,7 +11,7 @@ const account = {
 async function signIn() {
     // Launch a headless browser instance.
     const browser = await launch({
-        headless: false
+        headless: 'new'
     });
 
     const page = await browser.newPage();
@@ -63,14 +63,16 @@ async function downloadImage(url, filename) {
 
 async function scrapeImages($, property) {
     const imageElements = $('div.w-full.h-full.bg-cover.rounded-lg');
-    await fs.promises.mkdir(`${imageBasePath}/${property.name}`, {recursive: true});
+    const imagePath = `${imageBasePath}/${property.name}_${property.lpCode}`;
+    await fs.promises.mkdir(imagePath, {recursive: true});
     for (let i = 0; i < imageElements.length; i++) {
         const imageElement = imageElements[i];
         const cssCode = $(imageElement).css('background-image');
         const urlRegex = /url\(["']([^"']+)["']\)/;
         const match = cssCode.match(urlRegex);
         const fileExtension = match[1].match(/\.(\w+)$/)[1];
-        await downloadImage(match[1], `${imageBasePath}/${property.name}/${property.name}_${property.lpCode}_${i + 1}.${fileExtension}`)
+        const fileName = `${property.name}_${property.lpCode}_${i + 1}.${fileExtension}`;
+        await downloadImage(match[1], `${imagePath}/${fileName}`)
     }
 }
 

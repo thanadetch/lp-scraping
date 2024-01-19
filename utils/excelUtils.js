@@ -1,5 +1,6 @@
 const writeXlsxFile = require("write-excel-file/node");
 const {basePath} = require("./environmentUtils");
+const readXlsxFile = require("read-excel-file/node");
 
 const generateExcel = async (objects) => {
     const schema = [
@@ -61,6 +62,18 @@ const generateExcel = async (objects) => {
 
 }
 
+const getDataFromExcel = async () => {
+    const rows = await readXlsxFile(`configs/data.xlsx`);
+    rows.shift();
+    return rows.map(value => ({
+        lpCode: value[0],
+        name: value[1],
+        psCode: value[2],
+        area: value[3]
+    }))
+}
+
 module.exports = {
-    generateExcel
+    generateExcel,
+    getDataFromExcel
 }
