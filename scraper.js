@@ -16,6 +16,7 @@ const {cleanUp, scrapeImages, signIn, getPageData} = require("./utils/scaperUtil
 const {generateExcel, getDataFromExcel, generateReportExcel} = require("./utils/excelUtils");
 const {defaultListing} = require("./constants/listing");
 const {logDetail} = require("./utils/environmentUtils");
+const {logReport} = require("./utils/reportUtils");
 
 function propertyMapper($, property) {
     const listingType = getTextFromChoicesMapperObject($, choices.listingType, listingTypeMapper);
@@ -129,6 +130,8 @@ async function loadPage(isMock, page, property) {
     }
 }
 
+
+
 const scrapeWebPage = async ({isMock = false}) => {
     await cleanUp();
     const data = []
@@ -144,16 +147,13 @@ const scrapeWebPage = async ({isMock = false}) => {
             data.push(...propertyResults)
             if (!!propertyResults[0].postType) {
                 await scrapeImages($, property);
-                report.push({no: index + 1, lpCode: property.lpCode, status: 'DONE'});
-                console.log(`[${index + 1}/${properties.length}]`, property.lpCode, 'DONE')
+                logReport(report, index, property, properties, 'SUCCESS');
             } else {
-                report.push({no: index + 1, lpCode: property.lpCode, status: 'DATA NOT FOUND (skipped)'});
-                console.log(`[${index + 1}/${properties.length}]`, property.lpCode, 'DATA NOT FOUND (skipped)')
+                logReport(report, index, property, properties, 'DATA NOT FOUND (skipped)');
             }
         } else {
             data.push(defaultListing)
-            report.push({no: index + 1, lpCode: property.lpCode, status: 'SKIPPED'});
-            console.log(`[${index + 1}/${properties.length}]`, property.lpCode, 'SKIPPED')
+            logReport(report, index, property, properties, 'SKIPPED');
         }
         if (logDetail) console.log('===================================================')
     }
