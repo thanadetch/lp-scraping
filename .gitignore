@@ -7,4 +7,3 @@ gen
 .env
 node_modules
 generate
-configs/data.xlsx

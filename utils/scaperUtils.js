@@ -1,6 +1,6 @@
 const {launch} = require("puppeteer");
 const fs = require("fs");
-const {username, password, imageBasePath, basePath} = require("./environmentUtils");
+const {username, password, imageBasePath, basePath, logDetail} = require("./environmentUtils");
 const axios = require("axios");
 
 const account = {
@@ -54,7 +54,7 @@ async function downloadImage(url, filename) {
     try {
         const response = await axios.get(url, {responseType: 'arraybuffer'});
         await fs.promises.writeFile(filename, response.data)
-        console.error("Downloaded image", filename);
+        if (logDetail) console.error("Downloaded image", filename);
     } catch (e) {
         console.log(e)
         console.error("Error downloading image", filename)

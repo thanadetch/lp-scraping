@@ -13,69 +13,70 @@ const {
 const {petAllowedMapper, listingOwnerMapper, propertyTypeMapper, listingTypeMapper} = require("./constants/mapper");
 const {choices} = require("./constants/choices");
 const {cleanUp, scrapeImages, signIn, getPageData} = require("./utils/scaperUtils");
-const {generateExcel, getDataFromExcel} = require("./utils/excelUtils");
+const {generateExcel, getDataFromExcel, generateReportExcel} = require("./utils/excelUtils");
 const {defaultListing} = require("./constants/listing");
+const {logDetail} = require("./utils/environmentUtils");
 
 function propertyMapper($, property) {
     const listingType = getTextFromChoicesMapperObject($, choices.listingType, listingTypeMapper);
-    console.log('Listing Type:', listingType)
+    if (logDetail) console.log('Listing Type:', listingType)
 
     const propertyType = getTextFromTestIdMapperObject($, 'propertyType', propertyTypeMapper)
-    console.log('propertyType:', propertyType)
+    if (logDetail) console.log('propertyType:', propertyType)
 
     const projectName = getTextFromTestId($, 'projectName')
-    console.log('projectName:', projectName)
+    if (logDetail) console.log('projectName:', projectName)
 
     const datasource = getTextFromInput($, 'datasource')
-    console.log('datasource:', datasource)
+    if (logDetail) console.log('datasource:', datasource)
 
     const monthlyPriceMin12Months = getTextFromInputNumber($, 'monthlyPriceMin12Months')
-    console.log('monthlyPriceMin12Months:', monthlyPriceMin12Months)
+    if (logDetail) console.log('monthlyPriceMin12Months:', monthlyPriceMin12Months)
 
     const salePrice = getTextFromInputNumber($, 'salePrice')
-    console.log('salePrice:', salePrice)
+    if (logDetail) console.log('salePrice:', salePrice)
 
     const numberBedrooms = +(getTextFromTestId($, 'numberBedrooms')?.split(' ')[0])
-    console.log('numberBedrooms:', numberBedrooms)
+    if (logDetail) console.log('numberBedrooms:', numberBedrooms)
 
     const floorSize = getTextFromInputNumber($, 'floorSize')
-    console.log('floorSize:', floorSize)
+    if (logDetail) console.log('floorSize:', floorSize)
 
     const unitNumber = getTextFromInput($, 'propertyUnitNumber')
-    console.log('unitNumber:', unitNumber)
+    if (logDetail) console.log('unitNumber:', unitNumber)
 
     const floorLevel = getTextFromInputNumber($, 'floorLevel')
-    console.log('floorLevel:', floorLevel)
+    if (logDetail) console.log('floorLevel:', floorLevel)
 
     const petAllow = getTextFromChoicesMapperObject($, choices.pet, petAllowedMapper);
-    console.log('pet:', petAllow)
+    if (logDetail) console.log('pet:', petAllow)
 
     const direction = getTextFromChoices($, choices.direction);
-    console.log('direction:', direction)
+    if (logDetail) console.log('direction:', direction)
 
     const listingOwner = getTextFromChoicesMapperObject($, choices.ownerType, listingOwnerMapper);
-    console.log('listingOwner:', listingOwner)
+    if (logDetail) console.log('listingOwner:', listingOwner)
 
     const name = getTextFromMultiple($, 'name')
-    console.log('name:', name)
+    if (logDetail) console.log('name:', name)
 
     const phone = getTextFromMultiple($, 'phone')
-    console.log('phone:', phone)
+    if (logDetail) console.log('phone:', phone)
 
     const whatsapp = getTextFromMultiple($, 'whatsapp')
-    console.log('whatsapp:', phone)
+    if (logDetail) console.log('whatsapp:', phone)
 
     const line = getTextFromMultiple($, 'line')
-    console.log('line:', line)
+    if (logDetail) console.log('line:', line)
 
     const email = getTextFromMultiple($, 'email')
-    console.log('email:', email)
+    if (logDetail) console.log('email:', email)
 
     const fbmessenger = getTextFromMultiple($, 'fbmessenger')
-    console.log('fbmessenger:', fbmessenger)
+    if (logDetail) console.log('fbmessenger:', fbmessenger)
 
     const wechat = getTextFromMultiple($, 'wechat')
-    console.log('wechat:', wechat)
+    if (logDetail) console.log('wechat:', wechat)
 
     const result = {
         ...defaultListing,
@@ -131,22 +132,34 @@ async function loadPage(isMock, page, property) {
 const scrapeWebPage = async ({isMock = false}) => {
     await cleanUp();
     const data = []
+    const report = []
     const {page, browser} = isMock ? {} : await signIn();
     const properties = await getDataFromExcel()
     for (const property of properties) {
+        const index = properties.indexOf(property);
         if (property.psCode) {
             let $;
             $ = await loadPage(isMock, page, property);
-            const properties = propertyMapper($, property);
-            data.push(...properties)
-            if (!!properties[0].postType) await scrapeImages($, property);
-            console.log('===================================================')
+            const propertyResults = propertyMapper($, property);
+            data.push(...propertyResults)
+            if (!!propertyResults[0].postType) {
+                await scrapeImages($, property);
+                report.push({no: index + 1, lpCode: property.lpCode, status: 'DONE'});
+                console.log(`[${index + 1}/${properties.length}]`, property.lpCode, 'DONE')
+            } else {
+                report.push({no: index + 1, lpCode: property.lpCode, status: 'DATA NOT FOUND (skipped)'});
+                console.log(`[${index + 1}/${properties.length}]`, property.lpCode, 'DATA NOT FOUND (skipped)')
+            }
         } else {
             data.push(defaultListing)
+            report.push({no: index + 1, lpCode: property.lpCode, status: 'SKIPPED'});
+            console.log(`[${index + 1}/${properties.length}]`, property.lpCode, 'SKIPPED')
         }
+        if (logDetail) console.log('===================================================')
     }
 
     await generateExcel(data)
+    await generateReportExcel(report)
 
     //closing the browser
     if (!isMock) await browser.close();
