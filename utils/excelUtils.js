@@ -70,7 +70,7 @@ const generateReportExcel  = async (objects) => {
 
     await writeXlsxFile(objects, {
         schema,
-        filePath: `${basePath}/report.xlsx`
+        filePath: `${basePath}/reports.xlsx`
     })
 }
 
