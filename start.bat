@@ -1,3 +1,3 @@
 @echo off
 npm start
-pause
+timeout /nobreak /t 0 >nul

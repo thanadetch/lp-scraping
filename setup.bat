@@ -1,3 +1,4 @@
 @echo off
 npm install
-pause
+timeout /nobreak /t 0 >nul
+
