@@ -169,4 +169,4 @@ const scrapeWebPage = async ({isMock = false}) => {
     console.log('Finished')
 };
 
-scrapeWebPage({isMock: true});
+scrapeWebPage({isMock: false});
