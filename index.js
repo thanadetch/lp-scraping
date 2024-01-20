@@ -148,7 +148,7 @@ const scrapeWebPage = async ({isMock = false}) => {
                     await scrapeImages($, property);
                     logReport(report, index, property, properties, 'SUCCESS');
                 } else {
-                    logReport(report, index, property, properties, 'DATA NOT FOUND (skipped)');
+                    logReport(report, index, property, properties, 'DATA NOT FOUND');
                 }
             } else {
                 data.push(defaultListing)
@@ -169,4 +169,4 @@ const scrapeWebPage = async ({isMock = false}) => {
     console.log('Finished')
 };
 
-scrapeWebPage({isMock: true});
+scrapeWebPage({isMock: false});

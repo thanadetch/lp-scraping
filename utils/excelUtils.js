@@ -65,7 +65,7 @@ const generateReportExcel = async (objects) => {
     const schema = [
         {column: 'No', type: Number, value: listing => listing.no},
         {column: 'LP Code', type: String, value: listing => listing.lpCode},
-        {column: 'status', type: String, value: listing => listing.status},
+        {column: 'Status', type: String, value: listing => listing.status},
     ];
 
     await writeXlsxFile(objects, {
