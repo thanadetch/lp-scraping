@@ -130,8 +130,6 @@ async function loadPage(isMock, page, property) {
     }
 }
 
-
-
 const scrapeWebPage = async ({isMock = false}) => {
     await cleanUp();
     const data = []
@@ -140,22 +138,27 @@ const scrapeWebPage = async ({isMock = false}) => {
     const properties = await getDataFromExcel()
     for (const property of properties) {
         const index = properties.indexOf(property);
-        if (property.psCode) {
-            let $;
-            $ = await loadPage(isMock, page, property);
-            const propertyResults = propertyMapper($, property);
-            data.push(...propertyResults)
-            if (!!propertyResults[0].postType) {
-                await scrapeImages($, property);
-                logReport(report, index, property, properties, 'SUCCESS');
+        try {
+            if (property.psCode) {
+                let $;
+                $ = await loadPage(isMock, page, property);
+                const propertyResults = propertyMapper($, property);
+                data.push(...propertyResults)
+                if (!!propertyResults[0].postType) {
+                    await scrapeImages($, property);
+                    logReport(report, index, property, properties, 'SUCCESS');
+                } else {
+                    logReport(report, index, property, properties, 'DATA NOT FOUND (skipped)');
+                }
             } else {
-                logReport(report, index, property, properties, 'DATA NOT FOUND (skipped)');
+                data.push(defaultListing)
+                logReport(report, index, property, properties, 'SKIPPED');
             }
-        } else {
-            data.push(defaultListing)
-            logReport(report, index, property, properties, 'SKIPPED');
+        } catch (e) {
+            logReport(report, index, property, properties, 'ERROR');
+        } finally {
+            if (logDetail) console.log('===================================================')
         }
-        if (logDetail) console.log('===================================================')
     }
 
     await generateExcel(data)
@@ -163,7 +166,7 @@ const scrapeWebPage = async ({isMock = false}) => {
 
     //closing the browser
     if (!isMock) await browser.close();
-    console.log('finished')
+    console.log('Finished')
 };
 
 scrapeWebPage({isMock: true});

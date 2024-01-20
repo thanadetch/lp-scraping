@@ -61,7 +61,7 @@ const generateExcel = async (objects) => {
     })
 }
 
-const generateReportExcel  = async (objects) => {
+const generateReportExcel = async (objects) => {
     const schema = [
         {column: 'No', type: Number, value: listing => listing.no},
         {column: 'LP Code', type: String, value: listing => listing.lpCode},
