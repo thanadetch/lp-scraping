@@ -10,7 +10,7 @@ const generateExcel = async (objects) => {
         {column: 'PostType', type: String, value: listing => listing.postType},
         {column: 'PostFrom', type: String, value: listing => listing.postFrom},
         {column: 'ostAcceptAgent', type: Boolean, value: listing => listing.ostAcceptAgent},
-        {column: 'Zone ID', type: String, value: listing => listing.zoneId},
+        {column: 'Zone ID', type: Number, value: listing => listing.zoneId},
         {column: 'Project ID', type: String, value: listing => listing.projectId},
         {column: 'Title TH', type: String, value: listing => listing.titleTH},
         {column: 'Content TH', type: String, value: listing => listing.contentTH},

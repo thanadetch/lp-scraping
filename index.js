@@ -7,7 +7,7 @@ const {
     getTextFromChoices,
     getTextFromMultiple, mapperObject
 } = require("./utils/elementUtils");
-const {petAllowedMapper, listingOwnerMapper, propertyTypeMapper, listingTypeMapper} = require("./constants/mapper");
+const {petAllowedMapper, listingOwnerMapper, propertyTypeMapper, listingTypeMapper, zoneIdMapper} = require("./constants/mapper");
 const {choices} = require("./constants/choices");
 const {cleanUp, scrapeImages, signIn, getPageData, loadPage} = require("./utils/scaperUtils");
 const {generateExcel, getDataFromExcel, generateReportExcel} = require("./utils/excelUtils");
@@ -64,6 +64,9 @@ const propertyMapper = ($, property) => {
     const listingOwner = getTextFromChoicesMapperObject($, choices.ownerType, listingOwnerMapper);
     if (logDetail) console.log('listingOwner:', listingOwner)
 
+    const zoneId = mapperObject(property.area, zoneIdMapper)
+    if (logDetail) console.log('zoneId:', zoneId)
+
     const name = getTextFromMultiple($, 'name')
     if (logDetail) console.log('name:', name)
 
@@ -92,7 +95,7 @@ const propertyMapper = ($, property) => {
         building_type: buildingType,
         postType: listingType,
         postFrom: listingOwner,
-        zoneId: property.area,
+        zoneId: zoneId,
         titleTH: projectName,
         titleEN: projectName,
         areaSize: floorSize,
