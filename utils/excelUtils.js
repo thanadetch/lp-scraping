@@ -21,9 +21,9 @@ const generateExcel = async (objects) => {
         {column: 'Area_rai', type: Number, value: listing => listing.area_rai},
         {column: 'Area_ngan', type: Number, value: listing => listing.area_ngan},
         {column: 'Area_wa', type: Number, value: listing => listing.area_wa},
-        {column: 'Floor', type: Number, value: listing => listing.floor},
-        {column: 'Room', type: Number, value: listing => listing.room},
-        {column: 'Bathroom', type: Number, value: listing => listing.bathroom},
+        {column: 'Floor', type: String, value: listing => listing.floor},
+        {column: 'Room', type: String, value: listing => listing.room},
+        {column: 'Bathroom', type: String, value: listing => listing.bathroom},
         {column: 'pet_allowed', type: String, value: listing => listing.pet_allowed},
         {column: 'fq', type: String, value: listing => listing.fq},
         {column: 'youtube', type: String, value: listing => listing.youtube},
@@ -53,6 +53,7 @@ const generateExcel = async (objects) => {
         {column: 'External Data Source', type: String, value: listing => listing.externalDataSource},
         {column: 'Facing direction', type: String, value: listing => listing.facingDirection},
         {column: 'Unit Number', type: String, value: listing => listing.unitNumber},
+        {column: 'Property Type', type: String, value: listing => listing.propertyType},
     ];
 
     await writeXlsxFile(objects, {

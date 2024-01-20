@@ -3,12 +3,11 @@ const cheerio = require('cheerio');
 const fs = require("fs");
 const {
     getTextFromChoicesMapperObject,
-    getTextFromTestIdMapperObject,
     getTextFromTestId,
     getTextFromInput,
     getTextFromInputNumber,
     getTextFromChoices,
-    getTextFromMultiple
+    getTextFromMultiple, mapperObject
 } = require("./utils/elementUtils");
 const {petAllowedMapper, listingOwnerMapper, propertyTypeMapper, listingTypeMapper} = require("./constants/mapper");
 const {choices} = require("./constants/choices");
@@ -22,8 +21,11 @@ function propertyMapper($, property) {
     const listingType = getTextFromChoicesMapperObject($, choices.listingType, listingTypeMapper);
     if (logDetail) console.log('Listing Type:', listingType)
 
-    const propertyType = getTextFromTestIdMapperObject($, 'propertyType', propertyTypeMapper)
+    const propertyType = getTextFromTestId($, 'propertyType');
     if (logDetail) console.log('propertyType:', propertyType)
+
+    const buildingType = mapperObject(propertyType, propertyTypeMapper)
+    if (logDetail) console.log('buildingType:', buildingType)
 
     const projectName = getTextFromTestId($, 'projectName')
     if (logDetail) console.log('projectName:', projectName)
@@ -37,8 +39,14 @@ function propertyMapper($, property) {
     const salePrice = getTextFromInputNumber($, 'salePrice')
     if (logDetail) console.log('salePrice:', salePrice)
 
-    const numberBedrooms = +(getTextFromTestId($, 'numberBedrooms')?.split(' ')[0])
+    const numberBedroomsRaw = getTextFromTestId($, 'numberBedrooms')
+
+    const numberBedroomsRawNumber = +(numberBedroomsRaw?.split(' ')[0])
+    const numberBedrooms = isNaN(numberBedroomsRawNumber) ? numberBedroomsRaw : ('' + numberBedroomsRawNumber)
     if (logDetail) console.log('numberBedrooms:', numberBedrooms)
+
+    const bathroomsCount = $(`#bathrooms_count input`).val()
+    if (logDetail) console.log('bathroomsCount:', bathroomsCount)
 
     const floorSize = getTextFromInputNumber($, 'floorSize')
     if (logDetail) console.log('floorSize:', floorSize)
@@ -46,7 +54,7 @@ function propertyMapper($, property) {
     const unitNumber = getTextFromInput($, 'propertyUnitNumber')
     if (logDetail) console.log('unitNumber:', unitNumber)
 
-    const floorLevel = getTextFromInputNumber($, 'floorLevel')
+    const floorLevel = getTextFromInput($, 'floorLevel')
     if (logDetail) console.log('floorLevel:', floorLevel)
 
     const petAllow = getTextFromChoicesMapperObject($, choices.pet, petAllowedMapper);
@@ -83,7 +91,7 @@ function propertyMapper($, property) {
         ...defaultListing,
         action: 'New',
         sku: property.lpCode,
-        building_type: propertyType,
+        building_type: buildingType,
         postType: listingType,
         postFrom: listingOwner,
         zoneId: property.area,
@@ -92,7 +100,7 @@ function propertyMapper($, property) {
         areaSize: floorSize,
         floor: floorLevel,
         room: numberBedrooms,
-        bathroom: numberBedrooms,
+        bathroom: bathroomsCount,
         pet_allowed: petAllow,
         usefulSpace: floorSize,
         email: email,
@@ -105,6 +113,7 @@ function propertyMapper($, property) {
         externalDataSource: datasource,
         facingDirection: direction,
         unitNumber: unitNumber,
+        propertyType: propertyType,
     };
     if (listingType === 'buy/sell') {
         const resultRent = {...result, postType: 'Rent', price: monthlyPriceMin12Months}
