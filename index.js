@@ -1,6 +1,4 @@
 require('dotenv').config()
-const cheerio = require('cheerio');
-const fs = require("fs");
 const {
     getTextFromChoicesMapperObject,
     getTextFromTestId,
