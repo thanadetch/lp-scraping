@@ -11,13 +11,13 @@ const {
 } = require("./utils/elementUtils");
 const {petAllowedMapper, listingOwnerMapper, propertyTypeMapper, listingTypeMapper} = require("./constants/mapper");
 const {choices} = require("./constants/choices");
-const {cleanUp, scrapeImages, signIn, getPageData} = require("./utils/scaperUtils");
+const {cleanUp, scrapeImages, signIn, getPageData, loadPage} = require("./utils/scaperUtils");
 const {generateExcel, getDataFromExcel, generateReportExcel} = require("./utils/excelUtils");
 const {defaultListing} = require("./constants/listing");
 const {logDetail} = require("./utils/environmentUtils");
 const {logReport} = require("./utils/reportUtils");
 
-function propertyMapper($, property) {
+const propertyMapper = ($, property) => {
     const listingType = getTextFromChoicesMapperObject($, choices.listingType, listingTypeMapper);
     if (logDetail) console.log('Listing Type:', listingType)
 
@@ -130,15 +130,6 @@ function propertyMapper($, property) {
     }
 }
 
-async function loadPage(isMock, page, property) {
-    if (isMock) {
-        return cheerio.load(fs.readFileSync('test.html'));
-    } else {
-        const pageData = await getPageData(page, property.psCode);
-        return cheerio.load(pageData);
-    }
-}
-
 const scrapeWebPage = async ({isMock = false}) => {
     await cleanUp();
     const data = []
@@ -178,4 +169,4 @@ const scrapeWebPage = async ({isMock = false}) => {
     console.log('Finished')
 };
 
-scrapeWebPage({isMock: false});
+scrapeWebPage({isMock: true});

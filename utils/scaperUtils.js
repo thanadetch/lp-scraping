@@ -2,13 +2,14 @@ const {launch} = require("puppeteer");
 const fs = require("fs");
 const {username, password, imageBasePath, basePath, logDetail} = require("./environmentUtils");
 const axios = require("axios");
+const cheerio = require("cheerio");
 
 const account = {
     username: username,
     password: password
 }
 
-async function signIn() {
+const signIn = async () => {
     // Launch a headless browser instance.
     const browser = await launch({
         headless: 'new'
@@ -50,7 +51,7 @@ const getPageData = async (page, code) => {
     return pageData.html
 }
 
-async function downloadImage(url, filename) {
+const downloadImage = async (url, filename) => {
     try {
         const response = await axios.get(url, {responseType: 'arraybuffer'});
         await fs.promises.writeFile(filename, response.data)
@@ -61,7 +62,7 @@ async function downloadImage(url, filename) {
     }
 }
 
-async function scrapeImages($, property) {
+const scrapeImages = async ($, property) => {
     const imageElements = $('div.w-full.h-full.bg-cover.rounded-lg');
     const imagePath = `${imageBasePath}/${property.name}_${property.lpCode}`;
     await fs.promises.mkdir(imagePath, {recursive: true});
@@ -81,9 +82,19 @@ const cleanUp = async () => {
     await fs.promises.mkdir(basePath, {recursive: true})
 }
 
+const loadPage = async (isMock, page, property) => {
+    if (isMock) {
+        return cheerio.load(fs.readFileSync('mock.html'));
+    } else {
+        const pageData = await getPageData(page, property.psCode);
+        return cheerio.load(pageData);
+    }
+}
+
 module.exports = {
     signIn,
     getPageData,
     scrapeImages,
-    cleanUp
+    cleanUp,
+    loadPage
 }
