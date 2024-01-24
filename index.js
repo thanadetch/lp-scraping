@@ -7,14 +7,19 @@ const {
     getTextFromChoices,
     getTextFromMultiple, mapperObject
 } = require("./utils/elementUtils");
-const {petAllowedMapper, listingOwnerMapper, propertyTypeMapper, listingTypeMapper, zoneIdMapper} = require("./constants/mapper");
+const {
+    petAllowedMapper,
+    listingOwnerMapper,
+    propertyTypeMapper,
+    listingTypeMapper,
+    zoneIdMapper
+} = require("./constants/mapper");
 const {choices} = require("./constants/choices");
-const {cleanUp, scrapeImages, signIn, getPageData, loadPage} = require("./utils/scaperUtils");
-const {generateExcel, getDataFromExcel, generateReportExcel} = require("./utils/excelUtils");
+const {cleanUp, scrapeImages, signIn, loadPage} = require("./utils/scaperUtils");
+const {generateExcel, getDataFromExcelV1, getDataFromExcelV2, generateReportExcel} = require("./utils/excelUtils");
 const {defaultListing} = require("./constants/listing");
 const {logDetail} = require("./utils/environmentUtils");
 const {logReport} = require("./utils/reportUtils");
-
 const propertyMapper = ($, property) => {
     const listingType = getTextFromChoicesMapperObject($, choices.listingType, listingTypeMapper);
     if (logDetail) console.log('Listing Type:', listingType)
@@ -61,7 +66,12 @@ const propertyMapper = ($, property) => {
     const direction = getTextFromChoices($, choices.direction);
     if (logDetail) console.log('direction:', direction)
 
-    const listingOwner = getTextFromChoicesMapperObject($, choices.ownerType, listingOwnerMapper);
+    let listingOwner = ''
+    if (property.postBy) {
+        listingOwner = mapperObject(property.postBy, listingOwnerMapper)
+    } else {
+        listingOwner = getTextFromChoicesMapperObject($, choices.ownerType, listingOwnerMapper);
+    }
     if (logDetail) console.log('listingOwner:', listingOwner)
 
     const zoneId = mapperObject(property.area, zoneIdMapper)
@@ -115,6 +125,10 @@ const propertyMapper = ($, property) => {
         facingDirection: direction,
         unitNumber: unitNumber,
         propertyType: propertyType,
+        feedbackChecked: property?.feedBackChecked || '',
+        listedOn: property?.listedOn || '',
+        buildingYear: property?.buildingYear || '',
+        availability: property?.availability || ''
     };
     if (listingType === 'buy/sell') {
         const resultRent = {...result, postType: 'Rent', price: monthlyPriceMin12Months}
@@ -131,32 +145,39 @@ const propertyMapper = ($, property) => {
     }
 }
 
-const scrapeWebPage = async ({isMock = false}) => {
+const scrapeWebPage = async ({isMock = false, skipImage = false}) => {
     await cleanUp();
     const data = []
     const report = []
     const {page, browser} = isMock ? {} : await signIn();
-    const properties = await getDataFromExcel()
-    for (const property of properties) {
-        const index = properties.indexOf(property);
+    const propertiesV1 = await getDataFromExcelV1()
+    const propertiesV2 = await getDataFromExcelV2()
+    const length = propertiesV2.length;
+
+    for (const property of propertiesV2) {
+        const index = propertiesV2.indexOf(property);
         try {
             if (property.psCode) {
-                let $;
-                $ = await loadPage(isMock, page, property);
+                const isDuplicated = !!propertiesV1.find(p => p.psCode === property.psCode)
+                if (isDuplicated) {
+                    logReport(report, index, property, length, 'DUPLICATED');
+                    continue;
+                }
+                const $ = await loadPage(isMock, page, property);
                 const propertyResults = propertyMapper($, property);
                 data.push(...propertyResults)
                 if (!!propertyResults[0].postType) {
-                    await scrapeImages($, property);
-                    logReport(report, index, property, properties, 'SUCCESS');
+                    if (!skipImage) await scrapeImages($, property);
+                    logReport(report, index, property, length, 'SUCCESS');
                 } else {
-                    logReport(report, index, property, properties, 'DATA NOT FOUND');
+                    logReport(report, index, property, length, 'DATA NOT FOUND');
                 }
             } else {
                 data.push(defaultListing)
-                logReport(report, index, property, properties, 'SKIPPED');
+                logReport(report, index, property, length, 'SKIPPED');
             }
         } catch (e) {
-            logReport(report, index, property, properties, 'ERROR');
+            logReport(report, index, property, length, 'ERROR');
         } finally {
             if (logDetail) console.log('===================================================')
         }
@@ -170,4 +191,7 @@ const scrapeWebPage = async ({isMock = false}) => {
     console.log('Finished')
 };
 
-scrapeWebPage({isMock: false});
+scrapeWebPage({
+    isMock: false,
+    skipImage: false
+});

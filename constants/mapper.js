@@ -20,7 +20,9 @@ const petAllowedMapper = {
 
 const listingOwnerMapper = {
     ['Landlord']: 'Owner',
+    ['landlord']: 'Owner',
     ['Agent']: 'Agent',
+    ['agent']: 'Agent',
 }
 
 const listingTypeMapper = {

@@ -1,6 +1,6 @@
 const {launch} = require("puppeteer");
 const fs = require("fs");
-const {username, password, imageBasePath, basePath, logDetail} = require("./environmentUtils");
+const {username, password, imageBasePath, basePath, logDetail, webUrl} = require("./environmentUtils");
 const axios = require("axios");
 const cheerio = require("cheerio");
 
@@ -23,7 +23,7 @@ const signIn = async () => {
 
     await page.setViewport({width: 1366, height: 768})
 
-    await page.goto("https://propertyscout.co.th/");
+    await page.goto(webUrl);
 
     await page.waitForSelector('[data-testid="sign-in"]');
     await page.click('[data-testid="sign-in"]');
@@ -42,7 +42,7 @@ const signIn = async () => {
 }
 
 const getPageData = async (page, code) => {
-    await page.goto(`https://propertyscout.co.th/en/edit/${code}/`, {waitUntil: 'networkidle2'});
+    await page.goto(`${webUrl}/en/edit/${code}/`, {waitUntil: 'networkidle2'});
     const pageData = await page.evaluate(() => {
         return {
             html: document.documentElement.innerHTML,
@@ -64,7 +64,7 @@ const downloadImage = async (url, filename) => {
 
 const scrapeImages = async ($, property) => {
     const imageElements = $('div.w-full.h-full.bg-cover.rounded-lg');
-    const imagePath = `${imageBasePath}/${property.name}_${property.lpCode}`;
+    const imagePath = `${imageBasePath}/${property.lpCode}`;
     await fs.promises.mkdir(imagePath, {recursive: true});
     for (let i = 0; i < imageElements.length; i++) {
         const imageElement = imageElements[i];
@@ -72,7 +72,7 @@ const scrapeImages = async ($, property) => {
         const urlRegex = /url\(["']([^"']+)["']\)/;
         const match = cssCode.match(urlRegex);
         const fileExtension = match[1].match(/\.(\w+)$/)[1];
-        const fileName = `${property.name}_${property.lpCode}_${i + 1}.${fileExtension}`;
+        const fileName = `${property.lpCode}_${i + 1}.${fileExtension}`;
         await downloadImage(match[1], `${imagePath}/${fileName}`)
     }
 }

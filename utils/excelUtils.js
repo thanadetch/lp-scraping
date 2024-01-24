@@ -54,6 +54,10 @@ const generateExcel = async (objects) => {
         {column: 'Facing direction', type: String, value: listing => listing.facingDirection},
         {column: 'Unit Number', type: String, value: listing => listing.unitNumber},
         {column: 'Property Type', type: String, value: listing => listing.propertyType},
+        {column: 'Feedback Checked', type: String, value: listing => listing.feedbackChecked},
+        {column: 'Listed On', type: Date, format: 'dd/mm/yyyy', value: listing => listing.listedOn},
+        {column: 'Building year', type: Number, value: listing => listing.buildingYear},
+        {column: 'Availability', type: String, value: listing => listing.availability},
     ];
 
     await writeXlsxFile(objects, {
@@ -66,6 +70,7 @@ const generateReportExcel = async (objects) => {
     const schema = [
         {column: 'No', type: Number, value: listing => listing.no},
         {column: 'LP Code', type: String, value: listing => listing.lpCode},
+        {column: 'PS Code', type: Number, value: listing => listing.psCode},
         {column: 'Status', type: String, value: listing => listing.status},
     ];
 
@@ -75,8 +80,8 @@ const generateReportExcel = async (objects) => {
     })
 }
 
-const getDataFromExcel = async () => {
-    const rows = await readXlsxFile(`configs/data.xlsx`);
+const getDataFromExcelV1 = async () => {
+    const rows = await readXlsxFile(`configs/dataV1.xlsx`);
     rows.shift();
     return rows.map(value => ({
         lpCode: value[0],
@@ -86,8 +91,25 @@ const getDataFromExcel = async () => {
     }))
 }
 
+const getDataFromExcelV2 = async () => {
+    const rows = await readXlsxFile(`configs/dataV2.xlsx`);
+    rows.shift();
+    return rows.map(value => ({
+        psCode: value[0],
+        lpCode: value[1],
+        area: value[2],
+        name: value[3],
+        postBy: value[5],
+        feedBackChecked: value[14],
+        listedOn: value[15],
+        buildingYear: value[16],
+        availability: value[17],
+    }))
+}
+
 module.exports = {
     generateExcel,
-    getDataFromExcel,
-    generateReportExcel
+    generateReportExcel,
+    getDataFromExcelV1,
+    getDataFromExcelV2
 }
