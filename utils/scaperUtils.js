@@ -58,7 +58,7 @@ const downloadImage = async (url, filename) => {
         if (logDetail) console.error("Downloaded image", filename);
     } catch (e) {
         console.log(e)
-        console.error("Error downloading image", filename)
+        console.error("[Error] downloadImage:", filename)
     }
 }
 

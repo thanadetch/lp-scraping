@@ -1,8 +1,15 @@
 const writeXlsxFile = require("write-excel-file/node");
 const {basePath} = require("./environmentUtils");
 const readXlsxFile = require("read-excel-file/node");
+const {listingMap, zoneIdMapper} = require("../constants/mapper");
+const {mapperObject} = require("./elementUtils");
+const {REPORT_STATUS} = require("../constants/report");
+const {cleanUp} = require("./scaperUtils");
+let projectCondoLists;
+let projectHouseLists;
 
 const generateExcel = async (objects) => {
+    console.log('Generating Listing Excel...')
     const schema = [
         {column: 'Action', type: String, value: listing => listing.action},
         {column: 'SKU', type: String, value: listing => listing.sku},
@@ -11,7 +18,7 @@ const generateExcel = async (objects) => {
         {column: 'PostFrom', type: String, value: listing => listing.postFrom},
         {column: 'ostAcceptAgent', type: Boolean, value: listing => listing.ostAcceptAgent},
         {column: 'Zone ID', type: Number, value: listing => listing.zoneId},
-        {column: 'Project ID', type: String, value: listing => listing.projectId},
+        {column: 'Project ID', type: Number, value: listing => listing.projectId},
         {column: 'Title TH', type: String, value: listing => listing.titleTH},
         {column: 'Content TH', type: String, value: listing => listing.contentTH},
         {column: 'Title EN', type: String, value: listing => listing.titleEN},
@@ -58,19 +65,21 @@ const generateExcel = async (objects) => {
         {column: 'Listed On', type: Date, format: 'dd/mm/yyyy', value: listing => listing.listedOn},
         {column: 'Building year', type: Number, value: listing => listing.buildingYear},
         {column: 'Availability', type: String, value: listing => listing.availability},
+        {column: 'PS Code', type: String, value: listing => listing.psCode},
     ];
 
     await writeXlsxFile(objects, {
         schema,
-        filePath: `${basePath}/listings.xlsx`
+        filePath: `${basePath}/listings.xlsx`,
     })
 }
 
 const generateReportExcel = async (objects) => {
+    console.log('Generating Report Excel...')
     const schema = [
         {column: 'No', type: Number, value: listing => listing.no},
         {column: 'LP Code', type: String, value: listing => listing.lpCode},
-        {column: 'PS Code', type: Number, value: listing => listing.psCode},
+        {column: 'PS Code', type: String, value: listing => listing.psCode},
         {column: 'Status', type: String, value: listing => listing.status},
     ];
 
@@ -81,7 +90,7 @@ const generateReportExcel = async (objects) => {
 }
 
 const getDataFromExcelV1 = async () => {
-    const rows = await readXlsxFile(`configs/dataV1.xlsx`);
+    const rows = await readXlsxFile(`data/dataV1-1.xlsx`);
     rows.shift();
     return rows.map(value => ({
         lpCode: value[0],
@@ -91,8 +100,9 @@ const getDataFromExcelV1 = async () => {
     }))
 }
 
-const getDataFromExcelV2 = async () => {
-    const rows = await readXlsxFile(`configs/dataV2.xlsx`);
+
+const getDataFromExcelV2 = async (fileName) => {
+    const rows = await readXlsxFile(`data/${fileName}`);
     rows.shift();
     return rows.map(value => ({
         psCode: value[0],
@@ -107,9 +117,156 @@ const getDataFromExcelV2 = async () => {
     }))
 }
 
+const getDataFromExcelV2_1 = async () => {
+    return getDataFromExcelV2('dataV2-1.xlsx')
+}
+
+const getDataFromExcelV2_2 = async () => {
+    return getDataFromExcelV2('dataV2-2.xlsx')
+}
+
+const getDataFromExcelV2_3 = async () => {
+    return getDataFromExcelV2('dataV2-3.xlsx')
+}
+
+const getProjectLists = async (sheet, variable) => {
+    if (!variable) {
+        const map = {
+            'Zone ID': 'zoneId',
+            'Project ID': 'projectId',
+            'Project name ไทย': 'projectNameTH',
+            'Project name English': 'projectNameEN',
+        }
+        const {rows} = await readXlsxFile(`data/living_bulk2023.xlsx`, {
+            sheet: sheet,
+            map: map,
+        });
+        variable = rows
+    }
+    return variable;
+}
+
+const getProjectCondoList = () => getProjectLists('Project list(CONDO)', projectCondoLists);
+const getProjectHouseList = () => getProjectLists('Project list(House)', projectHouseLists);
+
+const getProjectId = async (property, buildingType, zoneId) => {
+    let projectCondoList;
+    let projectHouseList;
+
+    function findProjectId(list) {
+        const filterCondoLists = list.filter(p =>
+            p.projectNameEN.includes(property.name)
+        );
+        if (filterCondoLists.length === 1) {
+            return filterCondoLists[0].projectId
+        } else if (filterCondoLists.length > 1) {
+            return filterCondoLists.find(p => p.zoneId === zoneId)?.projectId || ''
+        } else {
+            return '';
+        }
+    }
+
+    switch (buildingType) {
+        case 'Condo':
+        case 'Hotel_apartment':
+            projectCondoList = await getProjectCondoList();
+            return findProjectId(projectCondoList);
+        case 'Home':
+        case 'Townhome':
+        case 'Land':
+            projectHouseList = await getProjectHouseList();
+            return findProjectId(projectHouseList);
+        case 'Commercial':
+            projectCondoList = await getProjectCondoList();
+            projectHouseList = await getProjectHouseList();
+            return findProjectId([...projectCondoList, ...projectHouseList]);
+        default:
+            return ''
+    }
+}
+
+
+const getDataList = async (fileName) => {
+    switch (fileName) {
+        case 'listingsV1-1.xlsx':
+            return getDataFromExcelV1(fileName)
+        case 'listingsV2-1.xlsx':
+            return getDataFromExcelV2_1(fileName)
+        case 'listingsV2-2.xlsx':
+            return getDataFromExcelV2_2()
+        default:
+            return
+    }
+}
+const fillZoneIdAndProjectId = async (fileName) => {
+    await cleanUp();
+    const dataList = await getDataList(fileName);
+    const {rows} = await readXlsxFile(`data/${fileName}`, {
+        map: listingMap,
+    });
+    const results = [];
+    let index = 0;
+    for (const row of rows) {
+        const data = dataList.find(d => d.lpCode === row.sku)
+        const zoneId = mapperObject(data?.area, zoneIdMapper)
+        const projectId = await getProjectId(data, row.building_type, zoneId)
+        row.zoneId = zoneId
+        row.projectId = projectId
+        row.psCode = data.psCode ? ('' + data.psCode) : ''
+        results.push(row);
+        console.log(`[${index + 1}/${rows.length}]`, data.lpCode, 'zoneId:', zoneId, 'projectId:', projectId)
+        index++;
+    }
+    await generateExcel(results)
+    console.log('finished')
+}
+
+
+const filterNotDuplicateLists = async (listings) => {
+    console.log('Check Duplicating...')
+    const psCodeObj = {};
+    let index = 0;
+    let duplicatedCount = 0;
+    for (const listing of listings) {
+        const key = listing.psCode + listing.postType;
+        if (psCodeObj[key]) {
+            duplicatedCount++;
+            listing.isRemoved = true;
+            console.log(`[${index + 1}/${listings.length}]`, listing.sku, listing.postType, listing.psCode, REPORT_STATUS.DUPLICATED);
+        }
+        psCodeObj[key] = true;
+        index++;
+    }
+    console.log('Duplicate Count:', duplicatedCount)
+    return listings.filter(listing => !listing.isRemoved);
+}
+
+const combineListAndCheckDuplicate = async (fileNames) => {
+    await cleanUp();
+    let listings = [];
+    for (const fileName of fileNames) {
+        const {rows} = await readXlsxFile(`listing/${fileName}`, {
+            map: listingMap,
+        });
+        listings = [...listings, ...rows]
+    }
+    const results = await filterNotDuplicateLists(listings);
+    await generateExcel(results)
+    console.log('finished')
+}
+
 module.exports = {
     generateExcel,
     generateReportExcel,
     getDataFromExcelV1,
-    getDataFromExcelV2
+    getDataFromExcelV2,
+    getDataFromExcelV2_1,
+    getDataFromExcelV2_2,
+    getDataFromExcelV2_3,
+    getProjectCondoList,
+    getProjectHouseList,
+    fillZoneIdAndProjectId,
+    getProjectId,
+    combineListAndCheckDuplicate,
+    filterNotDuplicateLists,
 }
