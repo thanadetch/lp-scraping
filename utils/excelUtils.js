@@ -5,6 +5,7 @@ const {listingMap, zoneIdMapper} = require("../constants/mapper");
 const {mapperObject} = require("./elementUtils");
 const {REPORT_STATUS} = require("../constants/report");
 const {cleanUp} = require("./scaperUtils");
+const {separateThaiAndEnglish} = require("./propertyUtils");
 let projectCondoLists;
 let projectHouseLists;
 
@@ -66,6 +67,7 @@ const generateExcel = async (objects) => {
         {column: 'Building year', type: Number, value: listing => listing.buildingYear},
         {column: 'Availability', type: String, value: listing => listing.availability},
         {column: 'PS Code', type: String, value: listing => listing.psCode},
+        {column: 'Area', type: String, value: listing => listing.area},
     ];
 
     await writeXlsxFile(objects, {
@@ -149,20 +151,16 @@ const getProjectLists = async (sheet, variable) => {
 const getProjectCondoList = () => getProjectLists('Project list(CONDO)', projectCondoLists);
 const getProjectHouseList = () => getProjectLists('Project list(House)', projectHouseLists);
 
-const getProjectId = async (property, buildingType, zoneId) => {
+const getProject = async (property, buildingType) => {
     let projectCondoList;
     let projectHouseList;
 
     function findProjectId(list) {
-        const filterCondoLists = list.filter(p =>
-            p.projectNameEN.includes(property.name)
-        );
-        if (filterCondoLists.length === 1) {
-            return filterCondoLists[0].projectId
-        } else if (filterCondoLists.length > 1) {
-            return filterCondoLists.find(p => p.zoneId === zoneId)?.projectId || ''
-        } else {
-            return '';
+        const filterCondo = list.find(p => p.projectNameEN.includes(property.name));
+
+        return {
+            projectId: filterCondo?.projectId,
+            zoneId: filterCondo?.zoneId
         }
     }
 
@@ -189,16 +187,28 @@ const getProjectId = async (property, buildingType, zoneId) => {
 const getDataList = async (fileName) => {
     switch (fileName) {
         case 'listingsV1-1.xlsx':
-            return getDataFromExcelV1(fileName)
+            return getDataFromExcelV1()
         case 'listingsV2-1.xlsx':
-            return getDataFromExcelV2_1(fileName)
+            return getDataFromExcelV2_1()
         case 'listingsV2-2.xlsx':
             return getDataFromExcelV2_2()
         default:
-            return
+            const dataV1 = await getDataFromExcelV1()
+            const dataV2_1 = await getDataFromExcelV2_1()
+            const dataV2_2 = await getDataFromExcelV2_2()
+            return [...dataV1, ...dataV2_1, ...dataV2_2]
     }
 }
-const fillZoneIdAndProjectId = async (fileName) => {
+
+const defaultOptions = {
+    fillProjectId: true,
+    fillZoneId: true,
+    fillPsCode: true,
+    fillArea: true,
+    fillTitle: true,
+}
+const fillMissingData = async (fileName, options = defaultOptions) => {
+    options = {...defaultOptions, ...options}
     await cleanUp();
     const dataList = await getDataList(fileName);
     const {rows} = await readXlsxFile(`data/${fileName}`, {
@@ -206,17 +216,40 @@ const fillZoneIdAndProjectId = async (fileName) => {
     });
     const results = [];
     let index = 0;
+
     for (const row of rows) {
         const data = dataList.find(d => d.lpCode === row.sku)
-        const zoneId = mapperObject(data?.area, zoneIdMapper)
-        const projectId = await getProjectId(data, row.building_type, zoneId)
-        row.zoneId = zoneId
-        row.projectId = projectId
-        row.psCode = data.psCode ? ('' + data.psCode) : ''
+        const {
+            projectId,
+            zoneId: projectZoneId
+        } = options.fillProjectId ? await getProject(data, row.building_type) : {projectId: null, zoneId: null};
+        const zoneId = options.fillZoneId ? projectZoneId ? projectZoneId : mapperObject(data?.area, zoneIdMapper) : null;
+        if (options.fillZoneId) row.zoneId = zoneId
+        if (options.fillProjectId) row.projectId = projectId
+        if (options.fillPsCode) row.psCode = data.psCode ? ('' + data.psCode) : ''
+        if (options.fillArea) row.area = data.area
+
+        let titleENValue = ''
+        let titleTHValue = ''
+        if (options.fillTitle && row.building_type === 'Condo') {
+            const title = separateThaiAndEnglish(row.titleTH)
+
+            titleENValue = title.english
+            titleTHValue = title.thai
+            row.titleEN = title.english
+            row.titleTH = title.thai
+        }
         results.push(row);
-        console.log(`[${index + 1}/${rows.length}]`, data.lpCode, 'zoneId:', zoneId, 'projectId:', projectId)
+        console.log(`[${index + 1}/${rows.length}]`, data.lpCode,
+            'zoneId:', zoneId,
+            'projectId:', projectId,
+            'psCode:', row.psCode,
+            'titleEN:', titleENValue,
+            'titleTH:', titleTHValue,
+        )
         index++;
     }
+    // if (browser) await browser.close();
     await generateExcel(results)
     console.log('finished')
 }
@@ -265,8 +298,8 @@ module.exports = {
     getDataFromExcelV2_3,
     getProjectCondoList,
     getProjectHouseList,
-    fillZoneIdAndProjectId,
-    getProjectId,
+    fillMissingData,
+    getProject,
     combineListAndCheckDuplicate,
     filterNotDuplicateLists,
 }

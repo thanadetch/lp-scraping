@@ -148,6 +148,7 @@ const listingMap = {
     'Building year': 'buildingYear',
     'Availability': 'availability',
     'PS Code': 'psCode',
+    'Area:': 'area'
 }
 
 module.exports = {

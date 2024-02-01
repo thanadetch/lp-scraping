@@ -51,6 +51,16 @@ const getPageData = async (page, code) => {
     return pageData.html
 }
 
+const getNormalPageData = async (page, code, language) => {
+    await page.goto(`${webUrl}/${language}/${code}/`, {waitUntil: 'networkidle2'});
+    const pageData = await page.evaluate(() => {
+        return {
+            html: document.documentElement.innerHTML,
+        };
+    });
+    return pageData.html
+}
+
 const downloadImage = async (url, filename) => {
     try {
         const response = await axios.get(url, {responseType: 'arraybuffer'});
@@ -96,5 +106,6 @@ module.exports = {
     getPageData,
     scrapeImages,
     cleanUp,
-    loadPage
+    loadPage,
+    getNormalPageData
 }

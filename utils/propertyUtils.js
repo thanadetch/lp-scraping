@@ -1,4 +1,4 @@
-const {getProjectCondoList, getProjectHouseList, getProjectId} = require("./excelUtils");
+const {getProjectCondoList, getProjectHouseList, getProject} = require("./excelUtils");
 const {
     getTextFromChoicesMapperObject,
     getTextFromTestId,
@@ -30,6 +30,7 @@ const propertyMapper = async ($, property) => {
     if (logDetail) console.log('buildingType:', buildingType)
 
     const projectName = getTextFromTestId($, 'projectName')
+    const title = separateThaiAndEnglish(projectName)
     if (logDetail) console.log('projectName:', projectName)
 
     const datasource = getTextFromInput($, 'datasource')
@@ -78,11 +79,11 @@ const propertyMapper = async ($, property) => {
     }
     if (logDetail) console.log('listingOwner:', listingOwner)
 
-    const zoneId = mapperObject(property.area, zoneIdMapper)
-    if (logDetail) console.log('zoneId:', zoneId)
-
-    const projectId = await getProjectId(property, buildingType, zoneId);
+    const {projectId, zoneId: projectZoneId} = await getProject(property, buildingType);
     if (logDetail) console.log('projectId:', projectId)
+
+    const zoneId = projectZoneId || mapperObject(property.area, zoneIdMapper)
+    if (logDetail) console.log('zoneId:', zoneId)
 
     const name = getTextFromMultiple($, 'name')
     if (logDetail) console.log('name:', name)
@@ -114,8 +115,8 @@ const propertyMapper = async ($, property) => {
         postFrom: listingOwner,
         zoneId: zoneId,
         projectId: projectId,
-        titleTH: projectName,
-        titleEN: projectName,
+        titleTH: title.thai,
+        titleEN: title.english,
         areaSize: floorSize,
         floor: floorLevel,
         room: numberBedrooms,
@@ -137,7 +138,8 @@ const propertyMapper = async ($, property) => {
         listedOn: property?.listedOn || '',
         buildingYear: property?.buildingYear || '',
         availability: property?.availability || '',
-        psCode: property?.psCode ? ('' + property.psCode) : ''
+        psCode: property?.psCode ? ('' + property.psCode) : '',
+        area: property?.area || ''
     };
     if (listingType === 'buy/sell') {
         const resultRent = {...result, postType: 'Rent', price: monthlyPriceMin12Months}
@@ -154,6 +156,50 @@ const propertyMapper = async ($, property) => {
     }
 }
 
+function separateThaiAndEnglish(input) {
+    const thaiRegex = /[\u0E00-\u0E7F]+/g;
+    const englishRegex = /[a-zA-Z]+/g;
+
+    if (englishRegex.test(input) && thaiRegex.test(input)) {
+        const splitInput = input.split(' ')
+        let thWords = []
+        let enWords = []
+
+        if (Number.isInteger(Number(splitInput[0]))) {
+            const firstNumber = splitInput[0]
+            enWords.push(splitInput[0])
+            for (let i = 1; i < splitInput.length; i++) {
+                if (splitInput[i] === firstNumber) {
+                    thWords = splitInput.slice(i, splitInput.length)
+                    break;
+                } else {
+                    enWords.push(splitInput[i])
+                }
+            }
+        } else if (splitInput[0].match(englishRegex)) {
+            for (let i = 0; i < splitInput.length; i++) {
+                if (splitInput[i].match(thaiRegex)) {
+                    thWords = splitInput.slice(i, splitInput.length)
+                    break;
+                } else {
+                    enWords.push(splitInput[i])
+                }
+            }
+        }
+
+        return {
+            thai: thWords.join(' ').trim(),
+            english: enWords.join(' ').trim()
+        };
+    }
+
+    return {
+        thai: input,
+        english: input
+    }
+}
+
+
 const isDuplicate = (properties, reports, property) => {
     const checkDuplicate = (list) => !!list.find(p => p.psCode === property.psCode)
     return checkDuplicate(properties) || checkDuplicate(reports)
@@ -162,5 +208,6 @@ const isDuplicate = (properties, reports, property) => {
 
 module.exports = {
     propertyMapper,
-    isDuplicate
+    isDuplicate,
+    separateThaiAndEnglish
 }
