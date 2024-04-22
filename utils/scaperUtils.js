@@ -12,7 +12,8 @@ const account = {
 const signIn = async () => {
     // Launch a headless browser instance.
     const browser = await launch({
-        headless: 'new'
+        headless: 'new',
+        timeout: 120000,
     });
 
     const page = await browser.newPage();
@@ -42,7 +43,7 @@ const signIn = async () => {
 }
 
 const getPageData = async (page, code) => {
-    await page.goto(`${webUrl}/en/edit/${code}/`, {waitUntil: 'networkidle2'});
+    await page.goto(`${webUrl}/en/edit/${code}/`, {waitUntil: 'networkidle2', timeout: 120000});
     const pageData = await page.evaluate(() => {
         return {
             html: document.documentElement.innerHTML,
@@ -83,7 +84,7 @@ const scrapeImages = async ($, property) => {
         const match = cssCode.match(urlRegex);
         const fileExtension = match[1].match(/\.(\w+)$/)[1];
         const fileName = `${property.lpCode}_${i + 1}.${fileExtension}`;
-        await downloadImage(match[1], `${imagePath}/${fileName}`)
+        downloadImage(match[1], `${imagePath}/${fileName}`)
     }
 }
 

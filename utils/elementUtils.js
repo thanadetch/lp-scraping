@@ -9,7 +9,7 @@ const getTextFromChoices = ($, choices) => {
 }
 
 const getTextFromMultiple = ($, id) => {
-    const elements = $(`#${id}`).last()
+    const elements = $(`#${id}.mb-4.scroll-mt-48.mb-8.scroll-mt-48`).last()
         .find('div.cursor-pointer.flex.items-center')
         .map((i, element) => $(element).text())
     return elements.get().join(',')

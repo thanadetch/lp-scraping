@@ -4,7 +4,8 @@ const REPORT_STATUS = {
     DUPLICATED: 'DUPLICATED',
     OK: 'Ok',
     SKIPPED: 'SKIPPED',
-    DATA_NOT_FOUND: 'DATA NOT FOUND'
+    DATA_NOT_FOUND: 'DATA NOT FOUND',
+    IMAGE_NOT_FOUND: 'IMAGE NOT FOUND',
 }
 
 module.exports = {

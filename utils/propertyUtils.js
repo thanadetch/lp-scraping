@@ -1,4 +1,3 @@
-const {getProjectCondoList, getProjectHouseList, getProject} = require("./excelUtils");
 const {
     getTextFromChoicesMapperObject,
     getTextFromTestId,
@@ -14,10 +13,30 @@ const {
     propertyTypeMapper,
     petAllowedMapper,
     listingOwnerMapper,
-    zoneIdMapper
+    zoneIdMapper, thaiAreaMapper
 } = require("../constants/mapper");
 const {logDetail} = require("./environmentUtils");
 const {defaultListing} = require("../constants/listing");
+const {getProjectFromNameEn, getProjectTitle} = require("./projectUtils");
+const {getZoneList} = require("./zoneUtils");
+const {separateThaiAndEnglish} = require("./separateThaiAndEnglish");
+
+const getAvailabilityAndComment = (availabilityValue) => {
+    let availability = ''
+    let comment = ''
+    if (availabilityValue?.includes('Available')) {
+        availability = 'Available'
+    } else if (availabilityValue?.includes('No Information')) {
+        availability = 'Cannot contact'
+    } else if (availabilityValue) {
+        availability = 'Not Available'
+        comment = availabilityValue
+    }
+    return {
+        availability,
+        comment
+    }
+}
 
 const propertyMapper = async ($, property) => {
     const listingType = getTextFromChoicesMapperObject($, choices.listingType, listingTypeMapper);
@@ -30,14 +49,24 @@ const propertyMapper = async ($, property) => {
     if (logDetail) console.log('buildingType:', buildingType)
 
     const projectName = getTextFromTestId($, 'projectName')
-    const title = separateThaiAndEnglish(projectName)
+    const separatedProjectName = separateThaiAndEnglish(projectName)
     if (logDetail) console.log('projectName:', projectName)
 
     const datasource = getTextFromInput($, 'datasource')
     if (logDetail) console.log('datasource:', datasource)
 
-    const monthlyPriceMin12Months = getTextFromInputNumber($, 'monthlyPriceMin12Months')
-    if (logDetail) console.log('monthlyPriceMin12Months:', monthlyPriceMin12Months)
+    let monthlyPriceMinMonths = '';
+    const months = [12, 6, 3, 1];
+    for (let i = 0; i < months.length; i++) {
+        const month = months[i];
+        const monthValue = getTextFromInputNumber($, `monthlyPriceMin${month}Month${month > 1 ? 's' : ''}`)
+        if (monthValue) {
+            monthlyPriceMinMonths = monthValue
+            break;
+        }
+    }
+    if (logDetail) console.log('monthlyPriceMinMonths:', monthlyPriceMinMonths)
+
 
     const salePrice = getTextFromInputNumber($, 'salePrice')
     if (logDetail) console.log('salePrice:', salePrice)
@@ -79,11 +108,25 @@ const propertyMapper = async ($, property) => {
     }
     if (logDetail) console.log('listingOwner:', listingOwner)
 
-    const {projectId, zoneId: projectZoneId} = await getProject(property, buildingType);
+    const {
+        projectId,
+        zoneId: projectZoneId,
+        areaLp
+    } = await getProjectFromNameEn(separatedProjectName.english, buildingType);
     if (logDetail) console.log('projectId:', projectId)
 
     const zoneId = projectZoneId || mapperObject(property.area, zoneIdMapper)
     if (logDetail) console.log('zoneId:', zoneId)
+
+    let area = ''
+    if (zoneId) {
+        const zoneList = await getZoneList()
+        const zoneArea = zoneList.find(z => z.zoneId?.toString() === zoneId?.toString())
+        area = zoneArea ? zoneArea.zoneNameEng : ''
+    } else {
+        area = ''
+    }
+    if (logDetail) console.log('area:', area)
 
     const name = getTextFromMultiple($, 'name')
     if (logDetail) console.log('name:', name)
@@ -109,14 +152,12 @@ const propertyMapper = async ($, property) => {
     const result = {
         ...defaultListing,
         action: 'New',
-        sku: property.lpCode,
+        sku: property?.lpCode || '',
         building_type: buildingType,
         postType: listingType,
         postFrom: listingOwner,
         zoneId: zoneId,
         projectId: projectId,
-        titleTH: title.thai,
-        titleEN: title.english,
         areaSize: floorSize,
         floor: floorLevel,
         room: numberBedrooms,
@@ -134,80 +175,60 @@ const propertyMapper = async ($, property) => {
         facingDirection: direction,
         unitNumber: unitNumber,
         propertyType: propertyType,
-        feedbackChecked: property?.feedBackChecked || '',
+        feedbackChecked: property?.feedbackChecked || '',
         listedOn: property?.listedOn || '',
-        buildingYear: property?.buildingYear || '',
-        availability: property?.availability || '',
+        buildingYear: property?.buildingYear?.toString() || '',
+        ...getAvailabilityAndComment(property?.availability || ''),
         psCode: property?.psCode ? ('' + property.psCode) : '',
-        area: property?.area || ''
+        areaLp: areaLp || property.area,
+        areaLv: area,
+        avlChecked: property?.avlChecked || ''
     };
+    const projectTitleRent = getProjectTitle(property, projectName, buildingType, 'Rent')
+    const projectTitleSell = getProjectTitle(property, projectName, buildingType, 'Sell')
+
     if (listingType === 'buy/sell') {
-        const resultRent = {...result, postType: 'Rent', price: monthlyPriceMin12Months}
-        const resultSell = {...result, postType: 'Sell', price: salePrice}
+        const resultRent = {
+            ...result,
+            postType: 'Rent',
+            price: monthlyPriceMinMonths,
+            titleTH: projectTitleRent.thai,
+            titleEN: projectTitleRent.english
+        }
+        const resultSell = {
+            ...result,
+            postType: 'Sell',
+            price: salePrice,
+            titleTH: projectTitleSell.thai,
+            titleEN: projectTitleSell.english
+        }
         return [resultRent, resultSell]
     } else if (listingType === 'Rent') {
-        result.price = monthlyPriceMin12Months;
+        result.price = monthlyPriceMinMonths;
+        result.titleTH = projectTitleRent.thai
+        result.titleEN = projectTitleRent.english
         return [result]
     } else if (listingType === 'Sell') {
         result.price = salePrice;
+        result.titleTH = projectTitleSell.thai
+        result.titleEN = projectTitleSell.english
         return [result]
     } else {
         return [defaultListing]
     }
 }
 
-function separateThaiAndEnglish(input) {
-    const thaiRegex = /[\u0E00-\u0E7F]+/g;
-    const englishRegex = /[a-zA-Z]+/g;
-
-    if (englishRegex.test(input) && thaiRegex.test(input)) {
-        const splitInput = input.split(' ')
-        let thWords = []
-        let enWords = []
-
-        if (Number.isInteger(Number(splitInput[0]))) {
-            const firstNumber = splitInput[0]
-            enWords.push(splitInput[0])
-            for (let i = 1; i < splitInput.length; i++) {
-                if (splitInput[i] === firstNumber) {
-                    thWords = splitInput.slice(i, splitInput.length)
-                    break;
-                } else {
-                    enWords.push(splitInput[i])
-                }
-            }
-        } else if (splitInput[0].match(englishRegex)) {
-            for (let i = 0; i < splitInput.length; i++) {
-                if (splitInput[i].match(thaiRegex)) {
-                    thWords = splitInput.slice(i, splitInput.length)
-                    break;
-                } else {
-                    enWords.push(splitInput[i])
-                }
-            }
-        }
-
-        return {
-            thai: thWords.join(' ').trim(),
-            english: enWords.join(' ').trim()
-        };
-    }
-
-    return {
-        thai: input,
-        english: input
-    }
+const sortObjKeys = (unordered) => {
+    return Object.keys(unordered).sort().reduce(
+        (obj, key) => {
+            obj[key] = unordered[key];
+            return obj;
+        },
+        {}
+    );
 }
-
-
-const isDuplicate = (properties, reports, property) => {
-    const checkDuplicate = (list) => !!list.find(p => p.psCode === property.psCode)
-    return checkDuplicate(properties) || checkDuplicate(reports)
-}
-
 
 module.exports = {
     propertyMapper,
-    isDuplicate,
-    separateThaiAndEnglish
+    sortObjKeys
 }

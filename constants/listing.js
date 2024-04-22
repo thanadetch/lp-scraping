@@ -48,7 +48,9 @@ const defaultListing = {
     externalDataSource: '',
     facingDirection: '',
     unitNumber: '',
-    psCode: ''
+    psCode: '',
+    area: '',
+    avlChecked: '',
 }
 
 module.exports = {
